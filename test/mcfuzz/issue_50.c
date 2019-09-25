@@ -6,7 +6,6 @@
 
 // CHECK-L: unsat
 // OLD-L: sat
-// XFAIL: *
 
 // Based on https://github.com/MCFuzzer/MCFuzz/issues/52.
 // With the old bv-opsem we get sat.
@@ -16,7 +15,7 @@ extern void __VERIFIER_error(void) __attribute__((noreturn));
 int _br_1 = 0;
 
 char *p = "abc\n";
-;
+
 
 static int is_end_of_statement(void) { return *p == '\n'; }
 
