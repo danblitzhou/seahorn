@@ -10,12 +10,8 @@ env:
 matrix:
   include:
    - os: linux
-     dist: trusty
-     language: generic
      env: BUILD_TYPE=MinSizeRel
    - os: linux
-     dist: trusty
-     language: generic
      env: BUILD_TYPE=Coverage
 
 services:
@@ -26,18 +22,19 @@ install: true
 script:
   ### build with docker
   - docker build --build-arg UBUNTU=xenial --build-arg BUILD_TYPE=$BUILD_TYPE --build-arg TRAVIS=true -t seahorn_xenial_build -f docker/seahorn-full-size-rel.Dockerfile .
-  - docker run -v `pwd`:/host -it seahorn_xenial_build /bin/sh -c "cp build/*.tar.gz /host/"
+  - docker run -v $(pwd):/host -it seahorn_xenial_build /bin/sh -c "cp build/*.tar.gz /host/"
   ### for coverage build matrix, test within seahorn_xenial_build and upload coverage into to codecov.io
-  - 'if [ "$BUILD_TYPE" = "Coverage" ];
-       then ci_env=`bash <(curl -s https://codecov.io/env)` &&
-       docker run $ci_env --env CODECOV_TOKEN=$CODECOV_TOKEN -v `pwd`:/host -it seahorn_xenial_build /bin/sh -c \
-       "apt update && apt install -y lcov ggcov;
-        cd build/run/share/seahorn/ ; lit test;
-        lcov -c --directory /seahorn/build/lib/seahorn/CMakeFiles/seahorn.LIB.dir/ -o coverage.info;
-        lcov --extract coverage.info "*/lib/seahorn/*" -o lib.info;
-        lcov --extract coverage.info "*/include/seahorn/*" -o header.info;
-        cat header.info lib.info > all.info;
-        bash <(curl -s https://codecov.io/bash) -f all.info";
+  - 'if [ "$BUILD_TYPE" = "Coverage" ]; then
+       ci_env=$(bash <(curl -s https://codecov.io/env)) \
+       docker run $ci_env  -v $(pwd):/host -it seahorn_xenial_build \
+       /bin/sh -c \
+       "apt update && apt install -y lcov ggcov && \
+        cd /seahorn/build && cmake --build . --target test-opsem && \
+        lcov -c --directory /seahorn/build/lib/seahorn/CMakeFiles/seahorn.LIB.dir/ -o coverage.info && \
+        lcov --extract coverage.info */lib/seahorn/* -o lib.info && \
+        lcov --extract coverage.info */include/seahorn/* -o header.info && \
+        cat header.info lib.info > all.info && \
+        bash <(curl -s https://codecov.io/bash) -f all.info"
      fi '
   ### extract SeaHorn in a separate container and run tests
   - 'if [ "$BUILD_TYPE" = "MinSizeRel" ]; then
@@ -48,11 +45,11 @@ script:
      fi '
   - 'if [ "$BUILD_TYPE" = "MinSizeRel" ]; then
        if [ "$TRAVIS_EVENT_TYPE" = "cron" ] ;
-       then docker run -v `pwd`:/host -it seahorn_container /bin/sh -c "cd share/seahorn/; lit test"
-         && docker login -u "$DOCKER_USER" -p "$DOCKER_PWD"
-         && docker tag seahorn_container seahorn/seahorn-llvm5:nightly
+       then docker run -v $(pwd):/host -it seahorn_container /bin/sh -c "cd share/seahorn/; lit test" \
+         && docker login -u "$DOCKER_USER" -p "$DOCKER_PWD" \
+         && docker tag seahorn_container seahorn/seahorn-llvm5:nightly \
          && docker push seahorn/seahorn-llvm5:nightly ;
-       else docker run -v `pwd`:/host -it seahorn_container /bin/sh -c "cd share/seahorn; lit test" ;
+       else docker run -v $(pwd):/host -it seahorn_container /bin/sh -c "cd share/seahorn; lit test" ;
        fi
      fi '
 
