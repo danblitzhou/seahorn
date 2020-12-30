@@ -1,0 +1,32 @@
+# workflow to run coverage tests
+
+name: COVERAGE
+
+# Controls when the action will run
+on:
+  schedule:
+    - cron: 0 0 * * *  # run every day at UTC 00:00
+  workflow_dispatch:
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    env:
+      BUILD_TYPE: Coverage
+    steps:
+      - name: Check Out Repo
+        uses: actions/checkout@v2
+        with:
+          ref: dev10  # only checkout dev10
+      - name: Build seahorn container for coverage
+        run: docker build --build-arg UBUNTU=xenial --build-arg BUILD_TYPE=$BUILD_TYPE --build-arg TRAVIS=true -t seahorn_xenial_build -f docker/seahorn-full-size-rel.Dockerfile .
+      - name: Run coverage tests and collect report
+        run: docker run -v $(pwd):/host -it seahorn_xenial_build /bin/sh -c "bash /seahorn/docker/run_and_collect_cov.sh && mv /seahorn/all.info /host"
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./all.info
+          name: codecov-seahorn
+          fail_ci_if_error: true
+          verbose: true
